@@ -1,0 +1,87 @@
+// Timeline, article page, editor and drafts wording.
+import { defineDashboardMessages } from '@appthrust/platform-dashboard-i18n'
+
+export const articleMessages = defineDashboardMessages({
+  'memo.timeline.tabs': { defaultMessage: 'Which articles to show', translations: { ja: '表示する記事' } },
+  'memo.timeline.all': { defaultMessage: 'All', translations: { ja: 'すべて' } },
+  'memo.timeline.following': { defaultMessage: 'Following', translations: { ja: 'フォロー中' } },
+  'memo.timeline.emptyAll.title': { defaultMessage: 'No articles yet', translations: { ja: 'まだ記事がありません' } },
+  'memo.timeline.emptyAll.body': { defaultMessage: 'Write the first one for your team.', translations: { ja: 'チームで最初の記事を書いてみましょう。' } },
+  'memo.timeline.emptyFollowing.title': {
+    defaultMessage: 'No articles from people you follow',
+    translations: { ja: 'フォロー中の人の記事はまだありません' },
+  },
+  'memo.timeline.emptyFollowing.body': {
+    defaultMessage: "Follow people from their author page and their articles appear here.",
+    translations: { ja: '気になる人の著者ページでフォローすると、その人の記事がここに並びます。' },
+  },
+  'memo.timeline.showAll': { defaultMessage: 'See all articles', translations: { ja: 'すべての記事を見る' } },
+  'memo.timeline.end': { defaultMessage: "You've reached the end", translations: { ja: 'すべての記事を表示しました' } },
+
+  'memo.article.like': { defaultMessage: 'Like', translations: { ja: 'スキ' } },
+  'memo.article.likeCount': { defaultMessage: '{count} likes', translations: { ja: 'スキ {count}' } },
+  'memo.article.publishedOn': { defaultMessage: 'Published {date}', translations: { ja: '{date} 公開' } },
+  'memo.article.draft': { defaultMessage: 'Draft', translations: { ja: '下書き' } },
+  'memo.article.draftNotice': {
+    defaultMessage: 'This article is a draft. Only you can see it until you publish it.',
+    translations: { ja: 'この記事は下書きです。公開するまで、あなた以外には見えません。' },
+  },
+  'memo.article.noBody': { defaultMessage: 'No text yet.', translations: { ja: '本文はまだありません。' } },
+  'memo.article.actions': { defaultMessage: 'Article actions', translations: { ja: '記事の操作' } },
+  'memo.article.edit': { defaultMessage: 'Edit', translations: { ja: '編集' } },
+  'memo.article.delete': { defaultMessage: 'Delete', translations: { ja: '削除' } },
+  'memo.article.adminDelete': { defaultMessage: 'Delete as administrator', translations: { ja: '管理者として削除' } },
+  'memo.article.deleteTitle': { defaultMessage: 'Delete this article?', translations: { ja: 'この記事を削除しますか？' } },
+  'memo.article.deleteBody': {
+    defaultMessage: '"{title}" and its likes are deleted. This cannot be undone.',
+    translations: { ja: '「{title}」とそのスキを削除します。元に戻せません。' },
+  },
+  'memo.article.deleteConfirm': { defaultMessage: 'Delete article', translations: { ja: '削除する' } },
+
+  'memo.editor.newTitle': { defaultMessage: 'Write an article', translations: { ja: '記事を書く' } },
+  'memo.editor.editTitle': { defaultMessage: 'Edit article', translations: { ja: '記事を編集' } },
+  'memo.editor.statusDraft': { defaultMessage: 'Draft — only you can see it', translations: { ja: '下書き（あなただけに見えます）' } },
+  'memo.editor.statusPublished': { defaultMessage: 'Published — everyone in the Project can read it', translations: { ja: '公開中（Project の全員が読めます）' } },
+  'memo.editor.titleLabel': { defaultMessage: 'Title', translations: { ja: 'タイトル' } },
+  'memo.editor.titlePlaceholder': { defaultMessage: 'Article title', translations: { ja: '記事のタイトル' } },
+  'memo.editor.titleCount': { defaultMessage: '{count} / {max} characters', translations: { ja: '{count} / {max} 文字' } },
+  'memo.editor.bodyLabel': { defaultMessage: 'Text (Markdown)', translations: { ja: '本文（Markdown）' } },
+  'memo.editor.bodyPlaceholder': {
+    defaultMessage: 'Write in Markdown: # heading, - list, **bold**, [link](https://…)',
+    translations: { ja: 'Markdown で書けます：# 見出し、- 箇条書き、**太字**、[リンク](https://…)' },
+  },
+  'memo.editor.mode': { defaultMessage: 'Editor view', translations: { ja: '表示の切り替え' } },
+  'memo.editor.source': { defaultMessage: 'Text', translations: { ja: '本文' } },
+  'memo.editor.preview': { defaultMessage: 'Preview', translations: { ja: 'プレビュー' } },
+  'memo.editor.previewEmpty': { defaultMessage: 'The preview appears here as you write.', translations: { ja: '本文を書くと、ここにプレビューが表示されます。' } },
+  'memo.editor.saveDraft': { defaultMessage: 'Save draft', translations: { ja: '下書き保存' } },
+  'memo.editor.publish': { defaultMessage: 'Publish', translations: { ja: '公開する' } },
+  'memo.editor.update': { defaultMessage: 'Update', translations: { ja: '更新' } },
+  'memo.editor.unpublish': { defaultMessage: 'Revert to draft', translations: { ja: '下書きに戻す' } },
+  'memo.editor.saved': { defaultMessage: 'Draft saved.', translations: { ja: '下書きを保存しました。' } },
+  'memo.editor.unpublished': {
+    defaultMessage: 'Reverted to a draft. Only you can see it until you publish it again.',
+    translations: { ja: '下書きに戻しました。もう一度公開するまで、あなた以外には見えません。' },
+  },
+  'memo.editor.titleRequired': { defaultMessage: 'Enter a title.', translations: { ja: 'タイトルを入力してください。' } },
+  'memo.editor.titleTooLong': { defaultMessage: 'Keep the title to {max} characters or fewer.', translations: { ja: 'タイトルは {max} 文字以内にしてください。' } },
+  'memo.editor.bodyRequired': { defaultMessage: 'Write some text before publishing.', translations: { ja: '公開するには本文を書いてください。' } },
+  'memo.editor.bodyTooLarge': { defaultMessage: 'The text must be 100 KiB or smaller.', translations: { ja: '本文は 100 KiB 以内にしてください。' } },
+  'memo.editor.leave': {
+    defaultMessage: 'You have unsaved changes. Leave this page?',
+    translations: { ja: '保存していない変更があります。このページを離れますか？' },
+  },
+  'memo.editor.notOwnerTitle': { defaultMessage: "You can't edit this article", translations: { ja: 'この記事は編集できません' } },
+  'memo.editor.notOwnerBody': { defaultMessage: 'Only the author can edit an article.', translations: { ja: '記事を編集できるのは書いた人だけです。' } },
+  'memo.editor.backToArticle': { defaultMessage: 'Back to the article', translations: { ja: '記事に戻る' } },
+  'memo.editor.unsaved': { defaultMessage: 'Unsaved changes', translations: { ja: '保存していない変更があります' } },
+  'memo.editor.lastSaved': { defaultMessage: 'Saved {time}', translations: { ja: '{time} に保存済み' } },
+
+  'memo.drafts.lead': { defaultMessage: 'Unpublished articles. Only you can see them.', translations: { ja: '公開前の記事です。あなただけに見えます。' } },
+  'memo.drafts.emptyTitle': { defaultMessage: 'No drafts', translations: { ja: '下書きはありません' } },
+  'memo.drafts.emptyBody': {
+    defaultMessage: 'Use "Save draft" in the editor to keep an article here until it is ready.',
+    translations: { ja: 'エディタの「下書き保存」で、書きかけの記事をここに残せます。' },
+  },
+  'memo.drafts.saved': { defaultMessage: 'Saved {date}', translations: { ja: '{date} 保存' } },
+})

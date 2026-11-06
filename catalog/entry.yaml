@@ -1,0 +1,63 @@
+apiVersion: appthrust.io/v1alpha1
+kind: ApplicationStackDefinition
+metadata:
+  name: memo
+spec:
+  access:
+    audiences:
+    - appthrust-platform-api
+    scopes:
+    - openid
+    - profile
+    - email
+    tokenClaims:
+    - groups
+  components:
+  - defaultValues:
+      livenessProbePath: /healthz
+      minScale: 1
+      port: 8080
+      publicURLEnv: MEMO_PUBLIC_URL
+      readinessProbePath: /readyz
+    definitionRef:
+      name: web-service
+      version: v1
+    id: web
+  - defaultValues:
+      provider: CNPG
+      storageSize: 2Gi
+    definitionRef:
+      name: postgresql
+      version: v1
+    id: database
+  connections:
+  - from: web
+    name: database
+    to: database
+  dependencies:
+  - definition: directory
+    installPolicy: Manual
+    publicURLEnv: MEMO_DIRECTORY_PUBLIC_URL
+    urlEnv: MEMO_DIRECTORY_URL
+  display:
+    category: collaborate
+    description: Write and share Markdown articles inside this organisation; follow
+      authors and like what you read.
+    iconRef:
+      name: memo
+    title: Memo
+  publish:
+    hostnameLabel: memo
+  releaseIdentityEnvPrefix: MEMO
+  updatePolicy:
+    allowed:
+    - pinned
+    - follow
+    default: pinned
+  versions:
+  - default: true
+    images:
+      web: ghcr.io/appthrust/platform/memo@sha256:f4f2d10ff4445e4499e26f232bbab5202753730bd45e19350d9c9e169b9e8ef1
+    name: 0.1.0
+    served: true
+    stream: "0.1"
