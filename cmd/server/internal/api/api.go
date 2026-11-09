@@ -34,7 +34,7 @@ type request struct {
 	w      http.ResponseWriter
 	tx     *store.Tx
 	author domain.Author
-	access platformclient.TeamAccess
+	access platformclient.ProjectAccess
 	bearer string
 }
 type endpoint func(*request) (any, int, error)
