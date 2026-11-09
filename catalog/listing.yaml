@@ -1,0 +1,90 @@
+locales:
+  en:
+    title: Memo
+    tagline: Share what your team knows as Markdown articles, follow the colleagues whose writing you value, and like what helped.
+    overview: |
+      Memo is a place for everyone in a Project to write and read articles. Procedures, retrospectives, notes from a customer visit or an event: write them once in Markdown, and colleagues find them on a shared timeline instead of in scattered chat threads.
+
+      The home timeline lists everyone's published articles, newest first, each with a short excerpt and its like count. The Following tab narrows it to the authors you follow. An author's page shows their published articles and their article, follower and following counts, and you can follow them from there. A Like at the end of an article tells the author it was useful.
+
+      Writing happens in an editor that shows the Markdown text and the rendered result side by side. Unfinished articles can be saved as drafts that only the author sees; publishing makes an article readable by everyone in the Project, and it can be reverted to a draft at any time. Only the author can edit an article; Project administrators can delete any article when needed.
+
+      Articles, likes and follows are stored inside the Project, and people sign in with their organisation account. When Directory is installed in the same Project, the pages of authors linked to Directory include a link to their Directory profile. The interface is available in Japanese and English.
+  ja:
+    title: Memo
+    tagline: チームの知見を Markdown の記事にして共有し、気になる書き手のフォローやスキで読み合えます。
+    overview: |
+      Memo は、Project のメンバーが記事を書いて読み合うための場所です。作業手順、ふりかえり、商談や展示会で聞いた話などを Markdown で一度書いておけば、チャットに流れて埋もれることなく、共通のタイムラインから見つけてもらえます。
+
+      ホームのタイムラインには、公開された記事が新しい順に、冒頭の抜粋とスキの数つきで並びます。「フォロー中」に切り替えると、フォローしている人の記事だけを読めます。著者ページでは、その人が公開した記事と、記事数・フォロワー数・フォロー数を確かめられ、そのままフォローできます。役に立った記事には、最後の「スキ」で気持ちを伝えられます。
+
+      エディタでは、Markdown の本文と仕上がりのプレビューが左右に並びます。書きかけの記事は下書きとして保存でき、公開するまでは書いた本人にしか見えません。公開すると Project の全員が読めるようになり、あとから下書きに戻すこともできます。記事を編集できるのは書いた人だけで、必要なときは Project の管理者がどの記事でも削除できます。
+
+      記事、スキ、フォローのデータは Project の中に保存され、サインインには組織のアカウントを使います。同じ Project に Directory をインストールしている場合、Directory と連携済みの著者のページには、ディレクトリのプロフィールへのリンクが表示されます。画面は日本語と英語に対応しています。
+highlights:
+  - screenshot: timeline
+    locales:
+      en:
+        title: One timeline for the whole Project
+        body: Published articles appear newest first, with an excerpt and like count. Switch to Following to read only the authors you follow.
+      ja:
+        title: Project 全体の記事がひとつのタイムラインに
+        body: 公開された記事が新しい順に、冒頭の抜粋とスキの数つきで並びます。「フォロー中」に切り替えると、フォローしている人の記事だけを読めます。
+  - screenshot: editor
+    locales:
+      en:
+        title: Write in Markdown with a live preview
+        body: The text and its rendered preview sit side by side while you type. Headings, lists, tables, quotes, code and links are supported.
+      ja:
+        title: Markdown で書いて、その場で仕上がりを確認
+        body: 本文とプレビューが左右に並び、書いたそばから表示を確かめられます。見出し、箇条書き、表、引用、コード、リンクに対応しています。
+  - screenshot: article
+    locales:
+      en:
+        title: Clean article pages, with likes
+        body: Articles are laid out for comfortable reading. A Like at the end lets the author know the article helped, and the count also shows on the timeline.
+      ja:
+        title: 読みやすい記事ページとスキ
+        body: 記事は読みやすく整えて表示されます。最後の「スキ」で書いた人に気持ちを伝えられ、その数はタイムラインにも表示されます。
+  - screenshot: author
+    locales:
+      en:
+        title: Follow the people whose writing you value
+        body: Each author page lists their published articles along with article, follower and following counts. For authors linked to Directory, it also links to their Directory profile.
+      ja:
+        title: 気になる書き手をフォロー
+        body: 著者ページには、公開した記事と、記事数・フォロワー数・フォロー数が表示されます。Directory と連携済みの著者のページには、ディレクトリのプロフィールへのリンクも表示されます。
+  - screenshot: drafts
+    locales:
+      en:
+        title: Drafts stay private until you publish
+        body: Save unfinished articles as drafts that only you can see. Publish when ready, and revert a published article to a draft if it needs more work.
+      ja:
+        title: 下書きは公開するまで自分だけに
+        body: 書きかけの記事は下書きとして保存でき、公開するまで他の人には見えません。公開した記事を、手直しのために下書きへ戻すこともできます。
+screenshots:
+  - name: timeline
+    file: timeline.webp
+    alt:
+      en: The Memo home timeline on the All tab, listing recent articles by four colleagues, each with author, date, title, an excerpt and a like count.
+      ja: Memo のホーム画面。「すべて」タブに 4 人の同僚が書いた最近の記事が並び、それぞれに著者、日付、タイトル、抜粋、スキの数が表示されています。
+  - name: editor
+    file: editor.webp
+    alt:
+      en: The article editor with a title filled in, Markdown text with headings, a list and a quote on the left, and the rendered preview on the right, plus Save draft and Publish buttons.
+      ja: 記事のエディタ。タイトルが入力され、左に見出し・箇条書き・引用を含む Markdown の本文、右に仕上がりのプレビューが並び、上部に「下書き保存」と「公開する」のボタンがあります。
+  - name: article
+    file: article.webp
+    alt:
+      en: A published article about moving on-call duty to two people, with headings, a bulleted list, a table and a quote, ending with a Like button showing 4 likes.
+      ja: オンコール当番を 2 人制にした経緯をまとめた公開記事。見出し、箇条書き、表、引用があり、最後にスキ 4 のボタンが表示されています。
+  - name: author
+    file: author.webp
+    alt:
+      en: An author page showing the author's name, a Directory profile link, 7 articles, 2 followers and 1 following, a Following button, and the list of published articles.
+      ja: 著者ページ。名前とディレクトリのプロフィールへのリンク、記事 7・フォロワー 2・フォロー中 1 の数、「フォロー中」ボタン、公開した記事の一覧が表示されています。
+  - name: drafts
+    file: drafts.webp
+    alt:
+      en: The Drafts page, noting that unpublished articles are visible only to their author, with three drafts and the date each was saved.
+      ja: 下書きの画面。公開前の記事は本人にしか見えないことが示され、3 件の下書きと、それぞれの保存日が並んでいます。

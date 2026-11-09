@@ -58,18 +58,12 @@ func newHarness(t *testing.T, directoryURL ...string) *harness {
 		switch r.URL.Path {
 		case "/api/v1/projects/pj-test/app-installations/memo":
 			httpx.WriteJSON(w, 200, map[string]any{"id": "memo", "links": []any{}})
-		case "/api/v1/projects/pj-test":
+		case "/api/v1/projects/pj-test/access":
 			if status := int(h.projectStatus.Load()); status != 0 {
 				w.WriteHeader(status)
 				return
 			}
-			httpx.WriteJSON(w, 200, map[string]string{"teamSlug": "test-team"})
-		case "/api/v1/teams":
-			httpx.WriteJSON(w, 200, map[string]any{"items": []any{map[string]string{"id": "team-id", "slug": "test-team", "role": role}}})
-		case "/api/v1/teams/team-id/members":
-			httpx.WriteJSON(w, 200, map[string]any{"items": []any{map[string]string{"id": "one", "email": "admin@example.test", "name": "Admin"}}})
-		case "/api/v1/teams/team-id/directory-users":
-			httpx.WriteJSON(w, 200, map[string]any{"items": []any{map[string]string{"id": "duplicate", "email": "admin@example.test", "name": "Admin"}, map[string]string{"id": "two", "email": "person@example.test", "name": "Person"}}})
+			httpx.WriteJSON(w, 200, map[string]any{"member": true, "role": role})
 		case "/api/v1/projects/pj-test/source-connections":
 			httpx.WriteJSON(w, 200, map[string]any{"data": []any{map[string]string{"id": "pending", "status": "incomplete"}, map[string]string{"id": "github", "status": "ready"}}})
 		case "/api/v1/registry-connections":
