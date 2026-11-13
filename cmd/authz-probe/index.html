@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Authz probe</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; padding: 0 1rem; max-width: 70rem; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { text-align: left; vertical-align: top; padding: .75rem; border-bottom: 1px solid #ccc; }
+    pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    button { padding: .5rem 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Authz probe</h1>
+  <p>App permissions for the signed-in user. The write and admin probes only check permissions; they do not change data.</p>
+  <button id="refresh" type="button">Run probes</button>
+  <table>
+    <thead><tr><th scope="col">Request</th><th scope="col">HTTP status</th><th scope="col">Response</th></tr></thead>
+    <tbody id="results" aria-live="polite"></tbody>
+  </table>
+  <noscript>Enable JavaScript to run the probes.</noscript>
+  <script>
+    const endpoints = [
+      { method: 'GET', path: '/api/probe/whoami' },
+      { method: 'GET', path: '/api/probe/read' },
+      { method: 'POST', path: '/api/probe/write' },
+      { method: 'POST', path: '/api/probe/admin' },
+    ];
+    const results = document.getElementById('results');
+    const refresh = document.getElementById('refresh');
+
+    async function runProbes() {
+      refresh.disabled = true;
+      results.replaceChildren();
+      try {
+        await Promise.all(endpoints.map(async ({ method, path }) => {
+          const row = results.insertRow();
+          row.insertCell().textContent = `${method} ${path}`;
+          const status = row.insertCell();
+          status.textContent = 'Waiting';
+          const body = document.createElement('pre');
+          row.insertCell().append(body);
+          try {
+            const response = await fetch(path, { method, credentials: 'same-origin', cache: 'no-store' });
+            status.textContent = String(response.status);
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+              body.textContent = JSON.stringify(await response.json(), null, 2);
+            } else {
+              body.textContent = 'Non-JSON response. Reload this page to sign in again.';
+            }
+          } catch (error) {
+            if (status.textContent === 'Waiting') status.textContent = 'No response';
+            body.textContent = error instanceof Error ? error.message : 'Request failed';
+          }
+        }));
+      } finally {
+        refresh.disabled = false;
+      }
+    }
+
+    refresh.addEventListener('click', runProbes);
+    runProbes();
+  </script>
+</body>
+</html>

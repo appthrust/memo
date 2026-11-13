@@ -1,0 +1,14 @@
+# Task-owned ink-only test source (APT-844); remove after verification.
+apiVersion: platform.appthrust.io/v1alpha1
+kind: AppCatalogSource
+metadata:
+  name: authz-test
+  labels:
+    appthrust.io/task: apt-844
+spec:
+  repository: ghcr.io/appthrust/memo
+  tag: authz-test-catalog
+  pollInterval: 5m
+  signerIdentity:
+    issuer: https://token.actions.githubusercontent.com
+    subjectRegexp: '^https://github\.com/appthrust/memo/\.github/workflows/authz-probe\.yml@refs/heads/main$'
