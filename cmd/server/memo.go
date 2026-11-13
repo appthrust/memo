@@ -23,7 +23,15 @@ const storeOpenTimeout = 30 * time.Second
 var storeRetryInitial = time.Second
 
 func memoHandler(upstreamURL, projectID string) (*pending.Handler, func(), error) {
-	auth, err := identity.New(identity.FromEnv("MEMO"))
+	trust := identity.FromEnv("MEMO")
+	if trust.OIDCIssuer != "" {
+		// On the platform every user request carries permissions resolved by
+		// Platform API for this installation (ADR-0082). A platform without the
+		// exchange makes the API unavailable rather than unauthorized-by-default.
+		access := identity.AppAccessFromEnv("memo")
+		trust.AppAccess = &access
+	}
+	auth, err := identity.New(trust)
 	if err != nil {
 		return nil, nil, err
 	}
