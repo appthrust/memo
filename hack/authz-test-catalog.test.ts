@@ -176,7 +176,7 @@ test('dry-run writes matching bytes and prints argv without any external publish
     expect(await command.exited).toBe(0)
     expect(stderr).toBe('')
     const directory = stdout.match(/^Dry-run files: (.+)$/m)![1]!
-    expect(await readdir(directory)).toEqual(['definitions', 'index.json'])
+    expect((await readdir(directory)).sort()).toEqual(['definitions', 'index.json'])
     const index = JSON.parse(await Bun.file(join(directory, 'index.json')).text())
     const definition = await Bun.file(join(directory, 'definitions/authz-probe.yaml')).text()
     expect(index.entries[0].definition.digest).toBe(sha256(definition))
