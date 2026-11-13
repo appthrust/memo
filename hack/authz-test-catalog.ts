@@ -18,6 +18,7 @@ interface Definition {
   kind: string
   metadata: { name: string }
   spec: {
+    access: { permissions: Array<{ name: string }>; roles: Array<{ name: string; permissions: string[] }> }
     display: { category: string }
     updatePolicy: CatalogEntry['updatePolicy']
     versions?: Array<CatalogVersion & { served: boolean }>
@@ -50,11 +51,17 @@ function sha256(content: string): string {
   return `sha256:${createHash('sha256').update(content).digest('hex')}`
 }
 
-export function renderCatalog(template: string, version: string, digest: string, publishedAt = new Date().toISOString()): CatalogPublication {
+// extendedModel appends one permission and one role, changing the role-model
+// digest without changing the version: the fixture for re-acceptance.
+export function renderCatalog(template: string, version: string, digest: string, publishedAt = new Date().toISOString(), extendedModel = false): CatalogPublication {
   validateRelease(version, digest)
   const definition = YAML.parse(template) as Definition
   if (definition.apiVersion !== 'appthrust.io/v1alpha1' || definition.kind !== 'ApplicationStackDefinition' || definition.metadata.name !== 'authz-probe') {
     throw new Error('template must be the authz-probe ApplicationStackDefinition')
+  }
+  if (extendedModel) {
+    definition.spec.access.permissions.push({ name: 'probe:audit' })
+    definition.spec.access.roles.push({ name: 'auditor', permissions: ['probe:read', 'probe:audit'] })
   }
   const selected: CatalogVersion = {
     name: version,
@@ -107,12 +114,13 @@ async function run(args: string[], cwd: string): Promise<string> {
 async function main(): Promise<void> {
   const { values } = parseArgs({ args: Bun.argv.slice(2), strict: true, options: {
     version: { type: 'string' }, digest: { type: 'string' }, 'dry-run': { type: 'boolean', default: false },
+    'extended-model': { type: 'boolean', default: false },
   } })
   if (!values.version || !values.digest) {
-    throw new Error('usage: bun hack/authz-test-catalog.ts --version <semver> --digest <sha256:hex> [--dry-run]')
+    throw new Error('usage: bun hack/authz-test-catalog.ts --version <semver> --digest <sha256:hex> [--extended-model] [--dry-run]')
   }
   const template = await Bun.file(new URL('../catalog/authz-probe.yaml', import.meta.url)).text()
-  const publication = renderCatalog(template, values.version, values.digest)
+  const publication = renderCatalog(template, values.version, values.digest, undefined, values['extended-model'])
   if (!values['dry-run'] && !process.env.ACTIONS_ID_TOKEN_REQUEST_URL) {
     throw new Error('Sigstore keyless signing requires GitHub Actions OIDC')
   }

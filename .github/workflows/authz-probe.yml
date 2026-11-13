@@ -8,6 +8,11 @@ on:
         required: true
         type: string
         default: '0.1.0'
+      extended_model:
+        description: Add the auditor role and probe:audit permission (re-acceptance fixture)
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -72,9 +77,12 @@ jobs:
         env:
           VERSION: ${{ steps.release.outputs.version }}
           DIGEST: ${{ steps.image.outputs.digest }}
+          EXTENDED_MODEL: ${{ inputs.extended_model }}
         run: |
           test "$GITHUB_WORKFLOW_REF" = 'appthrust/memo/.github/workflows/authz-probe.yml@refs/heads/main'
-          bun hack/authz-test-catalog.ts --version "$VERSION" --digest "$DIGEST"
+          flags=()
+          if [ "$EXTENDED_MODEL" = 'true' ]; then flags+=(--extended-model); fi
+          bun hack/authz-test-catalog.ts --version "$VERSION" --digest "$DIGEST" "${flags[@]}"
       - name: Verify the signed catalog
         env:
           CATALOG_DIGEST: ${{ steps.catalog.outputs.digest }}
