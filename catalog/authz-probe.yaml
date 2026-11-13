@@ -13,6 +13,18 @@ spec:
     - email
     tokenClaims:
     - groups
+    # Key scopes are declared permissions, so a person's key is checked against
+    # their roles at issuance (ADR-0082 A15).
+    accessKeys:
+      audience: authz-probe
+      keyPrefix: probe
+      audienceEnv: PROBE_ACCESS_AUDIENCE
+      defaultTTL: 24h
+      maxTTL: 168h
+      scopes:
+      - name: probe:read
+      - name: probe:write
+      - name: probe:admin
     permissions:
     - name: probe:read
     - name: probe:write
@@ -48,8 +60,8 @@ spec:
     title: Authz Probe
   publish:
     hostnameLabel: authz-probe
-  # Injects PROBE_OIDC_AUDIENCES from access.audiences, like Memo.
-  # No accessKeys means no PROBE_ACCESS_AUDIENCE or network access-key authentication.
+  # Injects PROBE_OIDC_AUDIENCES from access.audiences, like Memo;
+  # access.accessKeys injects PROBE_ACCESS_AUDIENCE.
   releaseIdentityEnvPrefix: PROBE
   # The shared repository's bare SemVer tags belong to Memo; follow would select them.
   updatePolicy:

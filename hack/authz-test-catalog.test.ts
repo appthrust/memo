@@ -55,6 +55,10 @@ describe('authz-test catalog rendering', () => {
           audiences: ['appthrust-platform-api'],
           scopes: ['openid', 'profile', 'email'],
           tokenClaims: ['groups'],
+          accessKeys: {
+            audience: 'authz-probe', keyPrefix: 'probe', audienceEnv: 'PROBE_ACCESS_AUDIENCE', defaultTTL: '24h', maxTTL: '168h',
+            scopes: [{ name: 'probe:read' }, { name: 'probe:write' }, { name: 'probe:admin' }],
+          },
           permissions: [{ name: 'probe:read' }, { name: 'probe:write' }, { name: 'probe:admin' }],
           roles: [
             { name: 'viewer', permissions: ['probe:read'] },
@@ -89,6 +93,8 @@ describe('authz-test catalog rendering', () => {
       expect(roles.map((role: { name: string }) => role.name)).toContain(binding.role)
       expect(Object.hasOwn(binding.subject, 'action')).toBe(binding.subject.kind === 'ProjectAccess')
     }
+    // Key scopes must be declared permissions (CRD CEL).
+    for (const scope of definition.spec.access.accessKeys.scopes) expect(permissions.map((p: { name: string }) => p.name)).toContain(scope.name)
   })
 
   test('updates only this fixture version without leaking served into the index', () => {
@@ -97,6 +103,14 @@ describe('authz-test catalog rendering', () => {
       { ...version, name: '0.2.3-rc.1', stream: '0.2' },
     ])
     expect(YAML.parse(template).spec.versions).toBeUndefined()
+  })
+
+  test('extended model appends one permission and role and leaves key scopes and the version alone', () => {
+    const base = YAML.parse(renderCatalog(template, '0.2.0', digest, publishedAt).layers[1]!.content).spec
+    const extended = YAML.parse(renderCatalog(template, '0.2.0', digest, publishedAt, true).layers[1]!.content).spec
+    expect(extended.access.permissions).toEqual([...base.access.permissions, { name: 'probe:audit' }])
+    expect(extended.access.roles).toEqual([...base.access.roles, { name: 'auditor', permissions: ['probe:read', 'probe:audit'] }])
+    expect({ ...extended, access: { ...extended.access, permissions: base.access.permissions, roles: base.access.roles } }).toEqual(base)
   })
 
   test('rejects invalid coordinates and any other app template', () => {
