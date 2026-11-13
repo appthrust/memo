@@ -129,3 +129,23 @@ track the selected stream; `pinned` installations require explicit updates.
 
 Migration authority:
 [First-party app repositories](https://github.com/appthrust/platform/blob/main/design/platform/marketplace-apps/first-party-app-repositories.md).
+
+## Authz Probe (ink-only test fixture)
+
+`cmd/authz-probe` is a dependency-free app that exercises platform app roles
+and bindings (platform ADR-0082) on `appthrust.ink`. It is not part of Memo and
+is never published to the shared catalog.
+
+- API: `GET /api/probe/whoami` returns the caller's resolved permissions and
+  whether the installation's access model is declared and accepted;
+  `GET /api/probe/read`, `POST /api/probe/write` and `POST /api/probe/admin`
+  answer 403 without `probe:read`, `probe:write` and `probe:admin`.
+- Roles: `viewer`, `editor`, `admin` (`catalog/authz-probe.yaml`). Project
+  managers get `admin` and every signed-in user gets `viewer` by default.
+- Publication: the manual workflow `authz-probe.yml` (main only) pushes the
+  image as `ghcr.io/appthrust/memo:authz-probe-<version>` and a signed one-entry
+  catalog as `ghcr.io/appthrust/memo:authz-test-catalog`. Updates are pinned
+  only, because Memo's version tags share the repository.
+- An estate reads it only through the task-owned `AppCatalogSource` in
+  `hack/authz-test/appcatalogsource.yaml`, which trusts that workflow alone.
+  It requires platform main `791a7f4d4c` or later.

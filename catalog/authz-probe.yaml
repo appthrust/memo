@@ -1,0 +1,58 @@
+# Ink-only test fixture; hack/authz-test-catalog.ts supplies the digest-pinned version.
+apiVersion: appthrust.io/v1alpha1
+kind: ApplicationStackDefinition
+metadata:
+  name: authz-probe
+spec:
+  access:
+    audiences:
+    - appthrust-platform-api
+    scopes:
+    - openid
+    - profile
+    - email
+    tokenClaims:
+    - groups
+    permissions:
+    - name: probe:read
+    - name: probe:write
+    - name: probe:admin
+    roles:
+    - name: viewer
+      permissions: [probe:read]
+    - name: editor
+      permissions: [probe:read, probe:write]
+    - name: admin
+      permissions: [probe:read, probe:write, probe:admin]
+    defaultBindings:
+    - role: admin
+      subject:
+        kind: ProjectAccess
+        action: project.manage
+    - role: viewer
+      subject:
+        kind: Authenticated
+  components:
+  - defaultValues:
+      livenessProbePath: /healthz
+      minScale: 1
+      port: 8080
+      readinessProbePath: /healthz
+    definitionRef:
+      name: web-service
+      version: v1
+    id: web
+  display:
+    category: collaborate
+    description: Test fixture for application roles and bindings on appthrust.ink.
+    title: Authz Probe
+  publish:
+    hostnameLabel: authz-probe
+  # Injects PROBE_OIDC_AUDIENCES from access.audiences, like Memo.
+  # No accessKeys means no PROBE_ACCESS_AUDIENCE or network access-key authentication.
+  releaseIdentityEnvPrefix: PROBE
+  # The shared repository's bare SemVer tags belong to Memo; follow would select them.
+  updatePolicy:
+    allowed:
+    - pinned
+    default: pinned
