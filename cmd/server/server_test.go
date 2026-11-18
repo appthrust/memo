@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -48,6 +49,30 @@ func TestHandlersRejectInvalidIdentityCA(t *testing.T) {
 	handler, err := newHandler(t.TempDir(), "https://platform.example.test", "pj-test", nil, nil)
 	require.EqualError(t, err, "OIDC CA PEM must contain only PEM certificates")
 	require.Nil(t, handler)
+}
+
+func TestRequestLogForUnavailableRelease(t *testing.T) {
+	for _, key := range []string{"PLATFORM_OIDC_ISSUER", "PLATFORM_OIDC_ISSUER_CA_PEM", "MEMO_RELEASE_VERSION", "MEMO_SOURCE_REVISION", "MEMO_ARTIFACT_DIGEST"} {
+		t.Setenv(key, "")
+	}
+	handler, err := newHandler(t.TempDir(), "http://127.0.0.1:1", "pj-test", nil, nil)
+	require.NoError(t, err)
+	var output bytes.Buffer
+	server := newHTTPServer(":0", handler, &output)
+	w := httptest.NewRecorder()
+	server.Handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/releasez", nil))
+	require.Equal(t, http.StatusServiceUnavailable, w.Code)
+
+	var line struct {
+		Msg, Service, Outcome, Reason string
+		Status                        int
+	}
+	require.NoError(t, json.Unmarshal(output.Bytes(), &line))
+	require.Equal(t, "request", line.Msg)
+	require.Equal(t, "memo", line.Service)
+	require.Equal(t, http.StatusServiceUnavailable, line.Status)
+	require.Equal(t, "unavailable", line.Outcome)
+	require.Equal(t, "release_identity_unavailable", line.Reason)
 }
 
 func TestPendingSurfaceAndRelease(t *testing.T) {
