@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"github.com/appthrust/appserver-go/appserver/httpx"
@@ -15,7 +16,6 @@ import (
 	"testing"
 
 	"fmt"
-	"github.com/appthrust/appserver-go/appserver/identity"
 	"github.com/appthrust/appserver-go/appserver/link"
 	"github.com/appthrust/appserver-go/appserver/pgstore/testutil"
 	platform "github.com/appthrust/appserver-go/appserver/platformclient"
@@ -26,6 +26,8 @@ import (
 type harness struct {
 	t             *testing.T
 	server        *httptest.Server
+	identity      *accessFixture
+	database      *store.Store
 	failed        atomic.Bool
 	projectStatus atomic.Int32
 }
@@ -37,8 +39,10 @@ func token(subject string) string {
 
 func newHarness(t *testing.T, directoryURL ...string) *harness {
 	t.Helper()
-	database, _ := testutil.Database(t, store.Open)
-	h := &harness{t: t}
+	database, _ := testutil.Database(t, func(ctx context.Context, dsn string) (*store.Store, error) {
+		return store.Open(ctx, dsn, "")
+	})
+	h := &harness{t: t, identity: newAccessFixture(t), database: database}
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if h.failed.Load() {
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -50,9 +54,9 @@ func newHarness(t *testing.T, directoryURL ...string) *harness {
 			return
 		}
 		role := "Viewer"
-		if r.Header.Get("Authorization") == "Bearer "+token("admin") {
+		if bearerSubject(t, r.Header.Get("Authorization")) == "admin" {
 			role = "Admin"
-		} else if r.Header.Get("Authorization") == "Bearer "+token("editor") {
+		} else if bearerSubject(t, r.Header.Get("Authorization")) == "editor" {
 			role = "Editor"
 		}
 		switch r.URL.Path {
@@ -74,16 +78,7 @@ func newHarness(t *testing.T, directoryURL ...string) *harness {
 		}
 	}))
 	t.Cleanup(upstream.Close)
-	issuer := testutil.NewOIDCIssuer(t)
-	auth, err := identity.New(identity.Trust{OIDCIssuer: issuer.Server.URL, OIDCCAPEM: issuer.CAPEM, OIDCAudiences: []string{"appthrust-platform-api"}})
-	require.NoError(t, err)
-	// Exercise a real signed bearer independently; subject-specific requests use the trust parser.
-	_, _, err = auth.Authenticate(t.Context(), issuer.Bearer(t))
-	require.NoError(t, err)
-	auth, err = identity.New(identity.Trust{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	auth := h.identity.auth()
 	client := platform.New(upstream.URL, "pj-test")
 	var links *link.Client
 	if len(directoryURL) > 0 {
@@ -114,7 +109,7 @@ func call[T any](h *harness, subject, method, path string, body any, status int)
 		h.t.Fatal(err)
 	}
 	if subject != "" {
-		r.Header.Set("Authorization", "Bearer "+token(subject))
+		r.Header.Set("Authorization", h.identity.bearer(subject))
 	}
 	r.Header.Set("Content-Type", "application/json")
 	response, err := h.server.Client().Do(r)
@@ -214,7 +209,7 @@ func TestTimelinePagingAndValidation(t *testing.T) {
 }
 func TestDirectoryRefreshAndAbsent(t *testing.T) {
 	directory := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "Bearer "+token("writer"), r.Header.Get("Authorization"))
+		require.Equal(t, "writer", bearerSubject(t, r.Header.Get("Authorization")))
 		require.Equal(t, "/api/directory/v1/me", r.URL.Path)
 		httpx.WriteJSON(w, 200, map[string]any{"person": map[string]string{"id": "p1", "displayName": "Dir Name"}})
 	}))

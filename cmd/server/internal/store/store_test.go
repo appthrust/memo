@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"encoding/base64"
 	"errors"
@@ -40,7 +41,9 @@ func TestCursor(t *testing.T) {
 	}
 }
 func TestSeedOnlyEmptyAndStableCursorTies(t *testing.T) {
-	database, _ := testutil.Database(t, Open)
+	database, _ := testutil.Database(t, func(ctx context.Context, dsn string) (*Store, error) {
+		return Open(ctx, dsn, "")
+	})
 	require.NoError(t, database.SeedDev(t.Context()))
 	require.NoError(t, database.SeedDev(t.Context()))
 	require.NoError(t, database.Do(t.Context(), true, func(tx *Tx) error {
