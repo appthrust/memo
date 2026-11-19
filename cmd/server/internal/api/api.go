@@ -94,9 +94,9 @@ func (a *API) route(pattern string, mutation, needsRoles bool, fn endpoint) {
 		err = a.store.Do(ctx, mutation, func(tx *store.Tx) error {
 			s.tx = tx
 			if mutation {
-				s.author, err = tx.UpsertAuthor(claims.Principal.Subject, claims.Name, claims.Email)
+				s.author, err = tx.UpsertAuthor(claims.Access.Principal, claims.Name, claims.Email)
 			} else {
-				s.author, err = tx.AuthorBySubject(claims.Principal.Subject)
+				s.author, err = tx.AuthorByPrincipal(claims.Access.Principal)
 				if errors.Is(err, sql.ErrNoRows) {
 					err = nil
 				}
@@ -121,13 +121,22 @@ func (a *API) route(pattern string, mutation, needsRoles bool, fn endpoint) {
 func (a *API) authenticate(w http.ResponseWriter, r *http.Request) (identity.Identity, string, bool) {
 	claims, bearer, err := a.identity.Authenticate(r.Context(), r.Header.Get("Authorization"))
 	if err != nil {
-		if errors.Is(err, identity.ErrUnavailable) {
+		var response *httpx.Error
+		if errors.As(err, &response) {
+			// The SDK maps ErrMissingSignedPrincipal to a diagnostic 503.
+			// Preserve its status/message rather than turning an old estate into 401.
+			httpx.WriteError(w, response, "memo")
+		} else if errors.Is(err, identity.ErrUnavailable) {
 			httpx.WriteError(w, httpx.Fail(503, "identity_unavailable", "The identity provider is temporarily unavailable"), "memo")
 		} else if errors.Is(err, identity.ErrRawKeyNotAccepted) {
 			httpx.WriteError(w, httpx.Fail(401, "raw_key_not_accepted", "Exchange the access key for an assertion before calling this API"), "memo")
 		} else {
 			httpx.WriteError(w, httpx.Fail(401, "unauthenticated", "A valid bearer token is required"), "memo")
 		}
+		return identity.Identity{}, "", false
+	}
+	if claims.Access == nil || claims.Access.Principal == "" {
+		httpx.WriteError(w, httpx.Fail(503, "access_unavailable", "Memo requires a platform-signed principal; configure app access and use a Platform API including #7087"), "memo")
 		return identity.Identity{}, "", false
 	}
 	return claims, bearer, true

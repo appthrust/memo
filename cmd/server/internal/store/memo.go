@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"strings"
@@ -21,14 +22,14 @@ func scanAuthor(row scanner) (a domain.Author, err error) {
 
 const authorColumns = "id, display_name, email, directory_person_id"
 
-// UpsertAuthor records the caller from the OIDC claims. Once Directory has
+// UpsertAuthor records the caller's signed principal. Once Directory has
 // linked the author (RefreshDirectory), the Directory display name stays
 // authoritative and claims only refresh the email.
-func (t *Tx) UpsertAuthor(subject, name, email string) (domain.Author, error) {
-	return scanAuthor(t.SQL.QueryRowContext(t.Context, `INSERT INTO authors(id,subject,display_name,email) VALUES($1,$2,$3,$4) ON CONFLICT(subject) DO UPDATE SET display_name=CASE WHEN authors.directory_person_id IS NULL THEN excluded.display_name ELSE authors.display_name END,email=excluded.email,updated_at=now() RETURNING `+authorColumns, ulid.Make().String(), subject, name, email))
+func (t *Tx) UpsertAuthor(principal, name, email string) (domain.Author, error) {
+	return scanAuthor(t.SQL.QueryRowContext(t.Context, `INSERT INTO authors(id,principal,display_name,email) VALUES($1,$2,$3,$4) ON CONFLICT(principal) DO UPDATE SET display_name=CASE WHEN authors.directory_person_id IS NULL THEN excluded.display_name ELSE authors.display_name END,email=excluded.email,updated_at=now() RETURNING `+authorColumns, ulid.Make().String(), principal, name, email))
 }
-func (t *Tx) AuthorBySubject(subject string) (domain.Author, error) {
-	return scanAuthor(t.SQL.QueryRowContext(t.Context, `SELECT `+authorColumns+` FROM authors WHERE subject=$1`, subject))
+func (t *Tx) AuthorByPrincipal(principal string) (domain.Author, error) {
+	return scanAuthor(t.SQL.QueryRowContext(t.Context, `SELECT `+authorColumns+` FROM authors WHERE principal=$1`, principal))
 }
 func (t *Tx) Author(id string) (domain.Author, error) {
 	return scanAuthor(t.SQL.QueryRowContext(t.Context, `SELECT `+authorColumns+` FROM authors WHERE id=$1`, id))
@@ -231,7 +232,9 @@ func (s *Store) SeedDev(ctx context.Context) error {
 		}
 		authors := make([]domain.Author, 3)
 		for i, name := range []string{"Aoi Tanaka", "Ren Suzuki", "Hana Sato"} {
-			a, err := t.UpsertAuthor(fmt.Sprintf("memo-demo-%d", i), name, fmt.Sprintf("memo%d@example.test", i))
+			// Synthetic development authors are not mapped to any real OIDC user.
+			digest := sha256.Sum256([]byte("memo-dev:" + name))
+			a, err := t.UpsertAuthor("u_"+base64.RawURLEncoding.EncodeToString(digest[:]), name, fmt.Sprintf("memo%d@example.test", i))
 			if err != nil {
 				return err
 			}
