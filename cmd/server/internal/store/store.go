@@ -17,12 +17,17 @@ var migrations embed.FS
 type Store struct{ *pgstore.Store }
 type Tx struct{ *pgstore.Tx }
 
-func Open(ctx context.Context, dsn string) (*Store, error) {
+func Open(ctx context.Context, dsn, legacyIssuer string) (*Store, error) {
 	database, err := pgstore.Open(ctx, dsn, migrations, "memo_schema_migrations")
 	if err != nil {
 		return nil, err
 	}
-	return &Store{Store: database}, nil
+	store := &Store{Store: database}
+	if err := store.migrateAuthorPrincipals(ctx, legacyIssuer); err != nil {
+		_ = database.Close()
+		return nil, err
+	}
+	return store, nil
 }
 
 func (s *Store) Do(ctx context.Context, write bool, fn func(*Tx) error) error {
