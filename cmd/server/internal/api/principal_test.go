@@ -20,6 +20,7 @@ import (
 	"github.com/appthrust/memo/cmd/server/internal/domain"
 	"github.com/appthrust/memo/cmd/server/internal/store"
 	"github.com/go-jose/go-jose/v4"
+	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -181,6 +182,133 @@ func TestSignedPrincipalOwnsNewWrites(t *testing.T) {
 		require.NoError(t, tx.SQL.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM authors), (SELECT count(*) FROM articles)`).Scan(&authors, &articles))
 		require.Equal(t, 1, authors)
 		require.Equal(t, 2, articles)
+		return nil
+	}))
+}
+
+func TestLegacyAuthorResolvesOnReadAndMutationPaths(t *testing.T) {
+	for _, tc := range []struct {
+		method string
+		path   string
+		body   any
+		status int
+	}{
+		{"GET", "/me", nil, 200},
+		{"GET", "/drafts", nil, 200},
+		{"GET", "/articles/draft", nil, 200},
+		{"GET", "/articles/published", nil, 200},
+		{"GET", "/articles?following=true", nil, 200},
+		{"GET", "/authors/peer", nil, 200},
+		{"POST", "/articles", map[string]string{"title": "New", "body": "Body"}, 201},
+		{"PATCH", "/articles/draft", map[string]string{"title": "Updated"}, 200},
+		{"PUT", "/articles/published/like", nil, 200},
+		{"PUT", "/authors/peer/follow", nil, 200},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			h := newHarness(t)
+			authorID := ulid.Make().String()
+			require.NoError(t, h.database.Do(t.Context(), true, func(tx *store.Tx) error {
+				if err := tx.Exec(`INSERT INTO authors(id,subject,display_name,email) VALUES
+					($1,'writer','writer','writer@example.test'),
+					('peer','peer','Peer','peer@example.test')`, authorID); err != nil {
+					return err
+				}
+				if err := tx.Exec(`INSERT INTO articles(id,author_id,title,body,status,published_at) VALUES
+					('draft',$1,'Draft','Body','draft',NULL),
+					('published','peer','Published','Body','published',now())`, authorID); err != nil {
+					return err
+				}
+				if err := tx.Exec(`INSERT INTO likes(article_id,author_id) VALUES('published',$1)`, authorID); err != nil {
+					return err
+				}
+				return tx.Exec(`INSERT INTO follows(follower_id,followee_id) VALUES($1,'peer')`, authorID)
+			}))
+			call[any](h, "writer", tc.method, tc.path, tc.body, tc.status)
+			var version string
+			require.NoError(t, h.database.Do(t.Context(), false, func(tx *store.Tx) error {
+				var principal string
+				require.NoError(t, tx.SQL.QueryRowContext(t.Context(), `SELECT principal,xmin::text FROM authors WHERE id=$1`, authorID).Scan(&principal, &version))
+				require.Equal(t, signedPrincipal("writer"), principal)
+				return nil
+			}))
+			me := call[meResponse](h, "writer", "GET", "/me", nil, 200)
+			require.Equal(t, authorID, me.Author.ID)
+			draft := call[domain.Article](h, "writer", "GET", "/articles/draft", nil, 200)
+			require.Equal(t, authorID, draft.Author.ID)
+			published := call[domain.Article](h, "writer", "GET", "/articles/published", nil, 200)
+			require.True(t, published.LikedByMe)
+			require.Equal(t, 1, published.LikeCount)
+			peer := call[domain.AuthorProfile](h, "writer", "GET", "/authors/peer", nil, 200)
+			require.True(t, peer.FollowedByMe)
+			require.NoError(t, h.database.Do(t.Context(), false, func(tx *store.Tx) error {
+				var current string
+				require.NoError(t, tx.SQL.QueryRowContext(t.Context(), `SELECT xmin::text FROM authors WHERE id=$1`, authorID).Scan(&current))
+				require.Equal(t, version, current, "repeat sign-in and reads must not rewrite the author")
+				var inert bool
+				require.NoError(t, tx.SQL.QueryRowContext(t.Context(), `SELECT principal IS NULL FROM authors WHERE id='peer'`).Scan(&inert))
+				require.True(t, inert, "target lookups must not rekey another user")
+				return nil
+			}))
+		})
+	}
+}
+
+func TestSubjectCannotActAsRekeyedAuthor(t *testing.T) {
+	h := newHarness(t)
+	require.NoError(t, h.database.Do(t.Context(), true, func(tx *store.Tx) error {
+		if err := tx.Exec(`INSERT INTO authors(id,subject,principal,display_name,email) VALUES
+			('owner','writer',$1,'Owner','owner@example.test'),
+			('peer',NULL,$2,'Peer','peer@example.test')`, signedPrincipal("other-issuer"), signedPrincipal("peer")); err != nil {
+			return err
+		}
+		return tx.Exec(`INSERT INTO articles(id,author_id,title,body,status,published_at) VALUES
+			('draft','owner','Draft','Body','draft',NULL),
+			('published','owner','Published','Body','published',now());
+			INSERT INTO likes(article_id,author_id) VALUES('published','owner');
+			INSERT INTO follows(follower_id,followee_id) VALUES('owner','peer')`)
+	}))
+	call[httpx.Error](h, "writer", "GET", "/articles/draft", nil, 404)
+	call[httpx.Error](h, "writer", "PATCH", "/articles/published", map[string]string{"title": "Stolen"}, 403)
+	call[httpx.Error](h, "writer", "DELETE", "/articles/published", nil, 403)
+	published := call[domain.Article](h, "writer", "GET", "/articles/published", nil, 200)
+	require.False(t, published.LikedByMe)
+	owner := call[domain.AuthorProfile](h, "writer", "GET", "/authors/owner", nil, 200)
+	require.False(t, owner.IsMe)
+	peer := call[domain.AuthorProfile](h, "writer", "GET", "/authors/peer", nil, 200)
+	require.False(t, peer.FollowedByMe)
+	me := call[meResponse](h, "writer", "GET", "/me", nil, 200)
+	require.NotEqual(t, "owner", me.Author.ID)
+	call[any](h, "writer", "DELETE", "/articles/published/like", nil, 200)
+	call[any](h, "writer", "DELETE", "/authors/peer/follow", nil, 200)
+	require.NoError(t, h.database.Do(t.Context(), false, func(tx *store.Tx) error {
+		var principal string
+		var likes, follows int
+		require.NoError(t, tx.SQL.QueryRowContext(t.Context(), `SELECT principal,(SELECT count(*) FROM likes WHERE author_id='owner'),(SELECT count(*) FROM follows WHERE follower_id='owner') FROM authors WHERE id='owner'`).Scan(&principal, &likes, &follows))
+		require.Equal(t, signedPrincipal("other-issuer"), principal)
+		require.Equal(t, 1, likes)
+		require.Equal(t, 1, follows)
+		return nil
+	}))
+	// Project admins retain moderation authority, but cannot edit as the owner.
+	call[httpx.Error](h, "admin", "PATCH", "/articles/published", map[string]string{"title": "Stolen"}, 403)
+	call[any](h, "admin", "DELETE", "/articles/published", nil, 204)
+}
+
+func TestPrincipalConflictFailsBeforeAuthorAction(t *testing.T) {
+	h := newHarness(t)
+	require.NoError(t, h.database.Do(t.Context(), true, func(tx *store.Tx) error {
+		return tx.Exec(`INSERT INTO authors(id,subject,principal,display_name,email) VALUES
+			('owner','other',$1,'Owner','owner@example.test'),
+			('claimant','writer',NULL,'Writer','writer@example.test')`, signedPrincipal("writer"))
+	}))
+	for _, path := range []string{"/me", "/drafts"} {
+		response := call[httpx.Error](h, "writer", "GET", path, nil, 409)
+		require.Equal(t, "author_principal_conflict", response.Code)
+	}
+	require.NoError(t, h.database.Do(t.Context(), false, func(tx *store.Tx) error {
+		var inert bool
+		require.NoError(t, tx.SQL.QueryRowContext(t.Context(), `SELECT principal IS NULL FROM authors WHERE id='claimant'`).Scan(&inert))
+		require.True(t, inert)
 		return nil
 	}))
 }

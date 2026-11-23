@@ -28,9 +28,6 @@ const authorColumns = "id, display_name, email, directory_person_id"
 func (t *Tx) UpsertAuthor(principal, name, email string) (domain.Author, error) {
 	return scanAuthor(t.SQL.QueryRowContext(t.Context, `INSERT INTO authors(id,principal,display_name,email) VALUES($1,$2,$3,$4) ON CONFLICT(principal) DO UPDATE SET display_name=CASE WHEN authors.directory_person_id IS NULL THEN excluded.display_name ELSE authors.display_name END,email=excluded.email,updated_at=now() RETURNING `+authorColumns, ulid.Make().String(), principal, name, email))
 }
-func (t *Tx) AuthorByPrincipal(principal string) (domain.Author, error) {
-	return scanAuthor(t.SQL.QueryRowContext(t.Context, `SELECT `+authorColumns+` FROM authors WHERE principal=$1`, principal))
-}
 func (t *Tx) Author(id string) (domain.Author, error) {
 	return scanAuthor(t.SQL.QueryRowContext(t.Context, `SELECT `+authorColumns+` FROM authors WHERE id=$1`, id))
 }
