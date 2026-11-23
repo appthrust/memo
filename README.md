@@ -80,32 +80,45 @@ HTTP 503, `access_unavailable`, with a message identifying the missing signed
 principal and the #7087 prerequisite. A locally parsed bearer without the
 exchange is also rejected, not silently mapped to a subject.
 
-Migration (a maintenance-window cutover, **not** a rolling upgrade):
+On each authenticated request that resolves an author, Memo first looks up the
+signed principal. If it is absent, Memo locks the row matching the SDK's verified
+bearer subject **only when its principal is NULL**, then attaches the signed
+principal transactionally. It does not derive a principal from a guessed issuer.
+The author keeps its ULID, articles, likes, follows, and Directory link. Subsequent
+sign-ins resolve by principal without rewriting the identity. Conflicting claims
+fail closed with HTTP 409, `author_principal_conflict`; a subject can never select
+an author already keyed to a different principal.
 
-1. Verify the prerequisites and stop every old Memo writer. Take a PostgreSQL
-   backup and record the old image digest. Retain both through the rollback window.
-2. Establish the exact issuer that originally issued **all** stored
-   `authors.subject` values. The old schema did not save it. Set
-   `MEMO_LEGACY_OIDC_ISSUER` to that verified value; do not infer it from a new
-   issuer, a URL suffix, a name, or an email. Mixed/unknown issuer histories require
-   a separately reviewed per-author mapping before rollout.
-3. Start the new binary. Migration `002_author_principal.sql` adds the unique
-   `authors.principal` column and retains `subject` as nullable rollback evidence.
-   Before readiness, `store.Open` locks the authors table and backfills missing keys
-   transactionally, then makes `principal` NOT NULL. Existing rows without a
-   verified historical issuer leave the API unavailable; no subject fallback occurs.
-   The exact hash input is decimal **UTF-8 byte length** of issuer, `:`, issuer,
-   subject (no other separator, trimming, or normalization), followed by SHA-256,
-   unpadded base64url, and the `u_` prefix. PostgreSQL's built-in `sha256` is used;
-   no extension or extra database privilege is needed.
-4. Before reopening traffic, check that every old author retains its ULID,
-   `subject`, display name, and Directory link, every principal is non-null and
-   unique, and all article/like/follow references are unchanged. Exercise a known
-   author's draft read/edit and the existing owner/admin restrictions.
-5. Remove `MEMO_LEGACY_OIDC_ISSUER` after completion. Repeated startup leaves
-   migrated keys unchanged. New authors store only the signed principal; the old
-   subject column is not used for reads, writes, or authorization and is retained
-   for the rollback window.
+Rows whose users never sign in again remain subject-keyed and inert: nobody acts
+as those authors until a verified sign-in rekeys them. Their existing published
+content and relationships remain visible. New authors store only the signed
+principal; retained historical subjects also remain available for rollback.
+
+Migration (a maintenance-window cutover, **not** a mixed-version rolling upgrade):
+
+1. Verify the prerequisites, record the old image digest, and take a PostgreSQL
+   backup. Stop every old Memo writer before starting the new version: old binaries
+   still write subject-keyed rows. Retain the backup and image through rollback.
+2. Roll out the new binary. **No migration environment variable is required.**
+   Migration `002_author_principal.sql` adds the unique `authors.principal` column
+   and retains `subject` as nullable rollback evidence. With
+   `MEMO_LEGACY_OIDC_ISSUER` unset or empty, startup succeeds without backfilling;
+   legacy principals stay NULL until their users sign in.
+3. Verify a known author's sign-in, draft read/edit, stable ULID, Directory link,
+   article/like/follow references, and the existing owner/admin restrictions.
+   Unvisited authors may still have NULL principals; this does not block readiness.
+
+Optional offline backfill: operators who can prove the exact issuer of **all**
+stored legacy subjects may set `MEMO_LEGACY_OIDC_ISSUER` before startup. The old
+schema did not save the issuer; do not infer it from the current URL, name, or email.
+For unknown or mixed histories, leave it unset and use sign-in rekeying instead.
+When set, `store.Open` locks the authors table, backfills missing principals
+transactionally, and makes the principal column NOT NULL, as before. The exact
+hash input is decimal **UTF-8 byte length** of issuer, `:`, issuer, subject (no
+other separator, trimming, or normalization), followed by SHA-256, unpadded
+base64url, and the `u_` prefix. PostgreSQL's built-in `sha256` is used; no extension
+or extra database privilege is needed. Check the resulting keys and remove the
+setting after completion; repeated startup leaves existing principals unchanged.
 
 Rollback:
 
@@ -126,9 +139,11 @@ Rollback:
 - The Platform API need not be rolled back: the old SDK ignores the added signed
   facts. Never deploy this binary against a pre-#7087 estate to recover availability.
 
-The migration integration test compares its SQL output with the exact Go
-reference expression from platform `bfeb156136f5`, including multibyte issuers,
-subject whitespace, delimiters, preserved relationships, and repeated startup.
+The integration tests cover lazy rekeying, repeat sign-ins without identity
+writes, conflicting claims, preserved relationships, and startup without an
+issuer. Optional backfill output is compared with the exact Go reference
+expression from platform `bfeb156136f5`, including multibyte issuers, subject
+whitespace, delimiters, and repeated startup.
 
 PostgreSQL integration tests are opt-in: they skip when both
 `BUILTIN_APPSERVER_TEST_DATABASE_URL` and `BUILDER_CONSOLE_TEST_DATABASE_URL` are unset.

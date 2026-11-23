@@ -89,20 +89,23 @@ func (a *API) route(pattern string, mutation, needsRoles bool, fn endpoint) {
 				return
 			}
 		}
+		s.author, err = a.store.RekeyAuthorOnSignIn(ctx, claims.Access.Principal, claims.Principal.Subject)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			httpx.WriteError(w, err, "memo")
+			return
+		}
 		var body any
 		var status int
 		err = a.store.Do(ctx, mutation, func(tx *store.Tx) error {
 			s.tx = tx
-			if mutation {
+			// Keep claim refreshes on mutation paths, but do not rewrite an
+			// already-keyed author when its effective profile is unchanged.
+			if mutation && (s.author.ID == "" || s.author.Email != claims.Email || (s.author.DirectoryPersonID == nil && s.author.DisplayName != claims.Name)) {
+				var err error
 				s.author, err = tx.UpsertAuthor(claims.Access.Principal, claims.Name, claims.Email)
-			} else {
-				s.author, err = tx.AuthorByPrincipal(claims.Access.Principal)
-				if errors.Is(err, sql.ErrNoRows) {
-					err = nil
+				if err != nil {
+					return err
 				}
-			}
-			if err != nil {
-				return err
 			}
 			body, status, err = fn(s)
 			return err

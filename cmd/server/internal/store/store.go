@@ -23,9 +23,11 @@ func Open(ctx context.Context, dsn, legacyIssuer string) (*Store, error) {
 		return nil, err
 	}
 	store := &Store{Store: database}
-	if err := store.migrateAuthorPrincipals(ctx, legacyIssuer); err != nil {
-		_ = database.Close()
-		return nil, err
+	if legacyIssuer != "" {
+		if err := store.migrateAuthorPrincipals(ctx, legacyIssuer); err != nil {
+			_ = database.Close()
+			return nil, err
+		}
 	}
 	return store, nil
 }
@@ -42,6 +44,9 @@ func translate(err error) error {
 	if errors.As(err, &pg) {
 		switch pg.Code {
 		case "23505":
+			if pg.Constraint == "authors_principal_key" {
+				return ErrAuthorPrincipalConflict
+			}
 			return httpx.Conflict("This value is already in use")
 		case "23503", "23514":
 			return httpx.Invalid("A referenced resource or value is invalid")
