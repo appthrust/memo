@@ -94,11 +94,13 @@ as those authors until a verified sign-in rekeys them. Their existing published
 content and relationships remain visible. New authors store only the signed
 principal; retained historical subjects also remain available for rollback.
 
-Migration (a maintenance-window cutover, **not** a mixed-version rolling upgrade):
+Migration (an ordinary rolling upgrade is fine):
 
-1. Verify the prerequisites, record the old image digest, and take a PostgreSQL
-   backup. Stop every old Memo writer before starting the new version: old binaries
-   still write subject-keyed rows. Retain the backup and image through rollback.
+1. Record the old image digest and take a PostgreSQL backup; retain both through
+   the rollback window. A mixed-version window is harmless: an old binary that
+   creates a subject-keyed author produces exactly the row shape the new binary
+   rekeys at that user's next sign-in. The optional offline backfill below is the
+   only step that must not overlap with old writers.
 2. Roll out the new binary. **No migration environment variable is required.**
    Migration `002_author_principal.sql` adds the unique `authors.principal` column
    and retains `subject` as nullable rollback evidence. With
