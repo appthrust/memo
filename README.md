@@ -16,8 +16,9 @@ Imported from `appthrust/platform` commit
 - `dashboard/packages/memo/` → `web/`, including the SPA, development mock, and tests.
 - Neither source directory contained a README at the imported revision.
 
-The public Go SDK is `github.com/appthrust/appserver-go v0.2.0`; no platform checkout,
-module replacement, or private Go credential is required. The launcher and i18n
+The public Go SDK is `github.com/appthrust/appserver-go v0.8.0` (PR #10, commit
+`78866523da5289d828f0ba13d325d31f590c6f68`); no platform checkout, module replacement,
+or private Go credential is required. The launcher and i18n
 packages use the published `^0.1.0` GitHub Packages versions rather than workspace
 packages. Tailwind scans the installed launcher package for its classes.
 
@@ -55,6 +56,79 @@ and `/healthz` remains 200. Missing database configuration leaves the API return
 `memo_store_unavailable` (503). `/api/memo/v1/openapi.json` exposes the API document
 when the API is available. `/releasez` uses `MEMO_RELEASE_VERSION` and
 `MEMO_ARTIFACT_DIGEST` supplied by the catalog.
+
+### Signed author keys: upgrade and rollback
+
+This release requires **both** `appserver-go v0.8.0` and a Platform API containing
+[appthrust/platform#7087](https://github.com/appthrust/platform/pull/7087).
+The SDK tag is published. Ink already includes #7087; Craftsman's first delivery
+(`dev-0271704de697`) does not: it requires the second, #7087-containing delivery.
+Do not merge or deploy this app update to an estate before both prerequisites hold.
+Neither an SDK upgrade nor an estate upgrade alone authorizes a Memo rollout.
+
+Recorded deployment: **ink**, `pj-eee7fa8eabbc/memo`,
+`https://memo.pj-eee7fa8eabbc.appthrust.ink`. Nexus's 2026-11-13 inventory
+(`features/security/permission/app-authorization.md`, section 15.4) records Memo
+as absent from Craftsman and Cloud. Current live state is **[未確認]**; this change
+does not inspect or modify any cluster.
+
+Author identity is now `Identity.Access.Principal`, the platform-signed `u_…`
+person key. Existing author ULIDs, article ownership references, likes, follows,
+Project-role checks, and Directory/OIDC display-name rules are unchanged.
+Memo never computes a live caller's key from `sub`. Missing signed facts return
+HTTP 503, `access_unavailable`, with a message identifying the missing signed
+principal and the #7087 prerequisite. A locally parsed bearer without the
+exchange is also rejected, not silently mapped to a subject.
+
+Migration (a maintenance-window cutover, **not** a rolling upgrade):
+
+1. Verify the prerequisites and stop every old Memo writer. Take a PostgreSQL
+   backup and record the old image digest. Retain both through the rollback window.
+2. Establish the exact issuer that originally issued **all** stored
+   `authors.subject` values. The old schema did not save it. Set
+   `MEMO_LEGACY_OIDC_ISSUER` to that verified value; do not infer it from a new
+   issuer, a URL suffix, a name, or an email. Mixed/unknown issuer histories require
+   a separately reviewed per-author mapping before rollout.
+3. Start the new binary. Migration `002_author_principal.sql` adds the unique
+   `authors.principal` column and retains `subject` as nullable rollback evidence.
+   Before readiness, `store.Open` locks the authors table and backfills missing keys
+   transactionally, then makes `principal` NOT NULL. Existing rows without a
+   verified historical issuer leave the API unavailable; no subject fallback occurs.
+   The exact hash input is decimal **UTF-8 byte length** of issuer, `:`, issuer,
+   subject (no other separator, trimming, or normalization), followed by SHA-256,
+   unpadded base64url, and the `u_` prefix. PostgreSQL's built-in `sha256` is used;
+   no extension or extra database privilege is needed.
+4. Before reopening traffic, check that every old author retains its ULID,
+   `subject`, display name, and Directory link, every principal is non-null and
+   unique, and all article/like/follow references are unchanged. Exercise a known
+   author's draft read/edit and the existing owner/admin restrictions.
+5. Remove `MEMO_LEGACY_OIDC_ISSUER` after completion. Repeated startup leaves
+   migrated keys unchanged. New authors store only the signed principal; the old
+   subject column is not used for reads, writes, or authorization and is retained
+   for the rollback window.
+
+Rollback:
+
+- **Before reopening writes:** stop the new binary, confirm every author's old
+  subject is still present, drop the new `principal` column, restore `subject
+  NOT NULL`, and delete only the `002_author_principal.sql` row from
+  `memo_schema_migrations`, in one transaction. Then start the recorded old image.
+  The previous author IDs and all relationships remain unchanged.
+- **After new authors have been created:** do not blindly switch binaries or
+  restore the backup over new writes. SHA-256 is not reversible. First obtain a
+  verified issuer/subject crosswalk for every `subject IS NULL` author and match
+  it to the stored principal using the exact hash above. Stop writers, populate
+  only those missing subjects, check completeness and the old subject uniqueness
+  constraint, then perform the same transactional rollback. If two issuers share
+  a subject or any mapping cannot be verified, the old schema cannot safely
+  represent the data: keep traffic closed and use a forward fix. Preserve a
+  backup/export of all post-upgrade data; do not invent subjects or discard rows.
+- The Platform API need not be rolled back: the old SDK ignores the added signed
+  facts. Never deploy this binary against a pre-#7087 estate to recover availability.
+
+The migration integration test compares its SQL output with the exact Go
+reference expression from platform `bfeb156136f5`, including multibyte issuers,
+subject whitespace, delimiters, preserved relationships, and repeated startup.
 
 PostgreSQL integration tests are opt-in: they skip when both
 `BUILTIN_APPSERVER_TEST_DATABASE_URL` and `BUILDER_CONSOLE_TEST_DATABASE_URL` are unset.

@@ -62,10 +62,11 @@ func memoHandler(upstreamURL, projectID string) (*pending.Handler, func(), error
 	}
 	seed := os.Getenv("MEMO_DEV_SEED") == "1"
 	directoryPublicURL := os.Getenv("MEMO_DIRECTORY_PUBLIC_URL")
+	legacyIssuer := os.Getenv("MEMO_LEGACY_OIDC_ISSUER")
 	stop := pending.Connect("memo database", storeRetryInitial, func(ctx context.Context) (io.Closer, error) {
 		ctx, cancel := context.WithTimeout(ctx, storeOpenTimeout)
 		defer cancel()
-		database, err := store.Open(ctx, dsn)
+		database, err := store.Open(ctx, dsn, legacyIssuer)
 		if err != nil {
 			return nil, err
 		}
