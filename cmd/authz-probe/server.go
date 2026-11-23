@@ -63,18 +63,23 @@ func newHandler(auth authenticator, installation, version string) http.Handler {
 		if scopes == nil {
 			scopes = []string{}
 		}
-		access := identity.AppAccess{}
-		if user.Access != nil {
-			access = *user.Access
+		type accessView struct {
+			Declared bool `json:"declared"`
+			Accepted bool `json:"accepted"`
 		}
-		// Explicit fields keep profile information and the forwarded bearer out
-		// of the diagnostic response, including when the SDK grows new fields.
+		access := accessView{}
+		if user.Access != nil {
+			access = accessView{Declared: user.Access.Declared, Accepted: user.Access.Accepted}
+		}
+		// Explicit fields keep profile information, the forwarded bearer and
+		// signed person/group facts out of the diagnostic response, including
+		// when the SDK grows new fields (v0.8.0 added principal and groupGrants).
 		httpx.WriteJSON(w, http.StatusOK, struct {
-			Subject      string             `json:"subject"`
-			Project      string             `json:"project"`
-			Installation string             `json:"installation"`
-			Scopes       []string           `json:"scopes"`
-			Access       identity.AppAccess `json:"access"`
+			Subject      string     `json:"subject"`
+			Project      string     `json:"project"`
+			Installation string     `json:"installation"`
+			Scopes       []string   `json:"scopes"`
+			Access       accessView `json:"access"`
 		}{user.Principal.Subject, user.Principal.Project, installation, scopes, access})
 	}))
 	mux.HandleFunc("GET /api/probe/read", permissionHandler(auth, "probe:read"))
